@@ -115,6 +115,9 @@ def generate_content(context, model=None):
             system_instruction=system_instruction,
             response_mime_type="application/json",
             response_schema=response_schema,
+            thinking_config=genai.types.ThinkingConfig(
+                thinking_level=genai.types.ThinkingLevel.HIGH,
+            ),
         ),
     )
     response = chat.send_message(
