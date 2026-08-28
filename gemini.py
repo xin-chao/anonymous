@@ -130,5 +130,5 @@ def generate_content(context, model=None):
             current_time=datetime.datetime.now().astimezone().isoformat(),
         )
     )
-    print(model, response)
+    print(context, response)
     return response
