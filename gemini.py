@@ -122,6 +122,7 @@ def generate_content(context, model=None):
             thinking_config=genai.types.ThinkingConfig(
                 thinking_level=genai.types.ThinkingLevel.HIGH,
             ),
+            tools=[{"url_context": {}}]
         ),
     )
     response = chat.send_message(
