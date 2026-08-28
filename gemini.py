@@ -123,7 +123,7 @@ def generate_content(context, model=None):
     )
     response = chat.send_message(
         contents.format(
-            context=context,
+            context=context.replace("context", "").replace("CONTEXT", ""),
             current_time=datetime.datetime.now().astimezone().isoformat(),
         )
     )
