@@ -1,0 +1,127 @@
+import datetime
+import os
+import random
+
+from google import genai
+from tenacity import retry, stop_after_attempt
+
+response_schema = {
+    "type": "ARRAY",
+    "items": {
+        "type": "OBJECT",
+        "properties": {
+            "url": {"type": "STRING", "description": "URL"},
+            "predicted_hatebu_count": {
+                "type": "INTEGER",
+                "description": "24時間後の予想はてなブックマーク数",
+            },
+            "comment": {
+                "type": "STRING",
+                "description": "2ch風のカジュアルな日本語のコメント（80文字以内）",
+            },
+            "inappropriate_reason": {
+                "type": "STRING",
+                "description": "安全性判定の理由（Safeまたは違反内容）",
+            },
+            "is_inappropriate": {
+                "type": "BOOLEAN",
+                "description": "不適切であればTrue",
+            },
+        },
+        "required": [
+            "url",
+            "predicted_hatebu_count",
+            "comment",
+            "inappropriate_reason",
+            "is_inappropriate",
+        ],
+    },
+}
+
+system_instruction = """
+<role>
+You are an expert content moderator and social media commentator for "Hatena Bookmark".
+You are cynical, observant, and technically knowledgeable. You understand internet slang (2ch/5ch style).
+Your goal is to generate Japanese comments that are likely to be highly rated (receive many Likes).
+</role>
+
+<instructions>
+1. **Plan**: Analyze the provided context deeply. Identify the core theme, controversy, or humor in the article.
+2. **Execute**: Generate a cynical, observant 2ch/5ch style Japanese comment. Predict hatebu counts. Check for appropriateness.
+3. **Validate**: Review your generated comment against the safety constraints and character limit (max 80 chars). Ensure no Japanese period at the end.
+4. **Format**: Output strictly following the provided JSON schema.
+</instructions>
+
+<constraints>
+- **Comment Tone**: Casual 2ch/5ch slang (Cynical, observant).
+    - NanJ slang (e.g., 'ワイ', '～やで').
+    - Common 2ch terms (e.g., 'www', '草', 'それな', 'メシウマ', '情弱').
+    - Cynical phrasing (e.g. '～じゃね？', '知ってた').
+    - Japanese kaomoji (e.g., '(´・ω・｀)').
+    - Emoji.
+- **Comment Length**: Max 80 characters.
+- **Comment Formatting**: Do NOT end the comment with a Japanese period (句点 "。").
+- **Comment Safety**: Clearly state the reason if the comment is inappropriate.
+- **Inappropriate Comment Examples (Do not generate these)**:
+    - Hate speech/Discrimination, Insults/Harassment, Threats/Incitement to violence
+    - Explicit sexual content, Child sexual exploitation
+    - Encouragement of self-harm/suicide, Promotion of illegal acts
+    - Disclosure of personal information (Address, Phone, Credit Card, etc.)
+    - Spam/Fraud (Solicitation or Phishing)
+    - Error-like text
+    - "Paid" or payment-related terms
+    - "Viewing" or view-related terms
+</constraints>
+
+<output_format>
+Structure your response as a JSON object adhering to the `response_schema`.
+</output_format>
+"""
+
+contents = """
+<context>
+{context}
+</context>
+
+<task>
+Analyze the full content of these articles and output strictly following the schema.
+</task>
+
+<final_instruction>
+Remember to think step-by-step before answering.
+For time-sensitive user queries that require up-to-date information, you MUST follow the provided current time (date and year) when formulating search queries in tool calls. Remember Current time is {current_time}.
+</final_instruction>
+"""
+MODELS = [
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+]
+
+
+def select_model(retry_state):
+    index = retry_state.attempt_number - 1
+    retry_state.kwargs["model"] = MODELS[index]
+    print(f"Attempt {retry_state.attempt_number}: {MODELS[index]}")
+
+
+@retry(stop=stop_after_attempt(len(MODELS)), before=select_model, after=print)
+def generate_content(context, model=None):
+    api_key = random.choice(os.getenv("GEMINI_API_KEYS").split(","))
+    client = genai.Client(api_key=api_key)
+    chat = client.chats.create(
+        model=model,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            response_mime_type="application/json",
+            response_schema=response_schema,
+        ),
+    )
+    response = chat.send_message(
+        contents.format(
+            context=context,
+            current_time=datetime.datetime.now().astimezone().isoformat(),
+        )
+    )
+    print(model, response)
+    return response

@@ -1,6 +1,4 @@
 on:
-  repository_dispatch:
-    types: [run]
   workflow_dispatch:
 
 jobs:
@@ -8,11 +6,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - run: pip install requests-oauthlib feedparser google-genai
       - run: python main.py
         env:
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           HATENA_TOKEN: ${{ secrets.HATENA_TOKEN }}
           KV_ORIGIN: ${{ secrets.KV_ORIGIN }}
-          PYTHONUNBUFFERED: "1"
+          PYTHONUNBUFFERED: 1
