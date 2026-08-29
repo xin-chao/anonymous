@@ -132,4 +132,7 @@ def generate_content(context, model=None):
         )
     )
     print(context, response)
+    if response.parsed is None:
+        print('response.parsed is None')
+        raise Exception("response.parsed is None")
     return response
